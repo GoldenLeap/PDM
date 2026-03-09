@@ -54,7 +54,6 @@ class _TodoPageState extends State<TodoPage>{
       }
     });
     _controller.clear();
-    print(listaTarefas);
   }
 
   void removerTarefa(int index){
@@ -92,44 +91,50 @@ class _TodoPageState extends State<TodoPage>{
         ],
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          TextField(
-            controller: _controller,
-            onSubmitted:(value) => adicionarTarefa(),
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: "Tarefa a ser adicionada...",
-              border: OutlineInputBorder(),
+      body: Center(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _controller,
+              onSubmitted:(value) => adicionarTarefa(),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                hintText: "Tarefa a ser adicionada...",
+                border: OutlineInputBorder(),
+              ),
+              style: TextStyle(fontFamily: 'Letters',
+              fontWeight: FontWeight.bold),
             ),
-            style: TextStyle(fontFamily: 'Letters',
-            fontWeight: FontWeight.bold),
-          ),
-          ElevatedButton(
-            onPressed: adicionarTarefa, 
-            child: const Text('Adicionar Tarefa'),),
-          Expanded(
-            child: ListView.builder(
-              itemCount: listaTarefas.length,
-              itemBuilder: (context, index){
-                return ListTile(
-                  title: Text(
-                    listaTarefas[index],
-                    style: TextStyle(
-                      fontFamily: 'Letters',
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
+            ElevatedButton(
+              onPressed: adicionarTarefa, 
+              child: const Text('Adicionar Tarefa'),),
+            Expanded(
+              child: ListView.builder(
+                itemCount: listaTarefas.length,
+                itemBuilder: (context, index){
+                  return ListTile(
+                    title: Center(
+                      child: Text(
+                        listaTarefas[index],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Letters',
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
-                  ),
-                  trailing: IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: ()=>removerTarefa(index),
-                    ),
-                );
-              },
-            ),
-          )
-        ],
+                    trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: ()=>removerTarefa(index),
+                      ),
+                  );
+                },
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
