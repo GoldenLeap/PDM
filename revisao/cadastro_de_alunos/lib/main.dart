@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'databasehelper/DatabaseHelper.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,8 +25,8 @@ class CadastroAluno extends StatefulWidget {
 }
 
 class _CadastroAlunoState extends State<CadastroAluno> {
-  // Lista para armazenar as informações dos alunos cadastrados
-  final List<String> listaAluno = [];
+  // Instância do DatabaseHelper
+  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   // Controllers para os TextFields (Nome e Idade)
   final List<TextEditingController> _controllers = [
@@ -34,12 +35,33 @@ class _CadastroAlunoState extends State<CadastroAluno> {
   ];
   final List<String> _labels = ["Nome", "Idade"];
 
-  String? _opcaoSelecionada;
-  final List<String> _cursos = [
-    "Ciência da Computação",
-    "Design Gráfico",
-    "Administração",
-  ];
+  // Variáveis para os Cursos e Lista vindos do Banco
+  int? _cursoIdSelecionado;
+  List<Map<String, dynamic>> _cursosDoBanco = [];
+  List<Map<String, dynamic>> _listaAlunosMatriculados = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarCursos();
+    _carregarAlunos();
+  }
+
+  // Carrega os cursos cadastrados no banco para preencher o Dropdown
+  Future<void> _carregarCursos() async {
+    final cursos = await _dbHelper.listarCursos();
+    setState(() {
+      _cursosDoBanco = cursos;
+    });
+  }
+
+  // Carrega os alunos com seus cursos e datas usando o JOIN do banco
+  Future<void> _carregarAlunos() async {
+    final alunos = await _dbHelper.listarAlunosComCursos();
+    setState(() {
+      _listaAlunosMatriculados = alunos;
+    });
+  }
 
   @override
   void dispose() {
@@ -49,25 +71,40 @@ class _CadastroAlunoState extends State<CadastroAluno> {
     super.dispose();
   }
 
-  // Função para realizar o cadastro
-  void _cadastrar() {
-    final nome = _controllers[0].text;
-    final idade = _controllers[1].text;
-    final curso = _opcaoSelecionada;
+  // Função para realizar o cadastro salvando no SQLite
+  Future<void> _cadastrar() async {
+    final nome = _controllers[0].text.trim();
+    final idadeStr = _controllers[1].text.trim();
+    final cursoId = _cursoIdSelecionado;
 
-    if (nome.isNotEmpty && idade.isNotEmpty && curso != null) {
+    if (nome.isNotEmpty && idadeStr.isNotEmpty && cursoId != null) {
+      final idade = int.tryParse(idadeStr) ?? 0;
+
+      // Insere o aluno e pega o ID gerado
+      int alunoId = await _dbHelper.insertAluno({
+        'nome': nome,
+        'idade': idade,
+      });
+
+      // Insere a matrícula vinculando o aluno ao curso selecionado
+      await _dbHelper.insertMatricula(alunoId, cursoId);
+
+      // Limpa os campos e atualiza a lista na tela
       setState(() {
-        listaAluno.add("Nome: $nome | Idade: $idade | Curso: $curso");
-
-        // Limpa os campos após o cadastro
         _controllers[0].clear();
         _controllers[1].clear();
-        _opcaoSelecionada = null;
+        _cursoIdSelecionado = null;
       });
-    } else {
-      // Exibe um aviso simples se algum campo estiver vazio
+
+      // Recarrega os dados do banco
+      _carregarAlunos();
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Preencha todos os campos!")),
+        const SnackBar(content: Text("Cadastro realizado com sucesso!")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Preencha todos os campos e selecione um curso!")),
       );
     }
   }
@@ -77,7 +114,7 @@ class _CadastroAlunoState extends State<CadastroAluno> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text("Cadastro de Alunos"),
+        title: const Text("Cadastro de Alunos com SQLite"),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -106,24 +143,24 @@ class _CadastroAlunoState extends State<CadastroAluno> {
               ),
             ),
 
-            // Dropdown de Cursos
+            // Dropdown de Cursos Dinâmico (Vindo do Banco)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: DropdownButtonFormField<String>(
+              child: DropdownButtonFormField<int>(
                 decoration: const InputDecoration(
                   labelText: "Cursos",
                   border: OutlineInputBorder(),
                 ),
-                value: _opcaoSelecionada,
-                items: _cursos.map((String valor) {
-                  return DropdownMenuItem<String>(
-                    value: valor,
-                    child: Text(valor),
+                value: _cursoIdSelecionado,
+                items: _cursosDoBanco.map((curso) {
+                  return DropdownMenuItem<int>(
+                    value: curso['id'], // O valor salvo é o ID do curso
+                    child: Text(curso['nome']), // O texto exibido é o nome
                   );
                 }).toList(),
                 onChanged: (newValue) {
                   setState(() {
-                    _opcaoSelecionada = newValue;
+                    _cursoIdSelecionado = newValue;
                   });
                 },
               ),
@@ -153,17 +190,22 @@ class _CadastroAlunoState extends State<CadastroAluno> {
 
             const SizedBox(height: 10),
 
-            // Lista dos alunos cadastrados exibida na tela
+            // Lista dos alunos cadastrados vinda do SQLite
             Expanded(
-              child: listaAluno.isEmpty
+              child: _listaAlunosMatriculados.isEmpty
                   ? const Center(child: Text("Nenhum aluno cadastrado ainda."))
                   : ListView.builder(
-                      itemCount: listaAluno.length,
+                      itemCount: _listaAlunosMatriculados.length,
                       itemBuilder: (context, index) {
+                        final item = _listaAlunosMatriculados[index];
                         return Card(
                           child: ListTile(
                             leading: const Icon(Icons.person),
-                            title: Text(listaAluno[index]),
+                            title: Text("${item['aluno_nome']} (${item['idade']} anos)"),
+                            subtitle: Text(
+                              "Curso: ${item['curso_nome']}\nData: ${item['data_matricula']}",
+                            ),
+                            isThreeLine: true,
                           ),
                         );
                       },

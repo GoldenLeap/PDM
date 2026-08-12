@@ -7,14 +7,14 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
   
-  Future<Database> get database async{
+  Future<Database> get database async {
     if(_database != null) return _database!;
     _database = await openDb();
     return _database!;
   }
 
   // Abrir db
-  Future<Database> openDb() async{
+  Future<Database> openDb() async {
     var databasePath = await getDatabasesPath();
     String dbPath = join(databasePath, 'dbb.db');
 
@@ -23,15 +23,14 @@ class DatabaseHelper {
       version: 1,
       onCreate: (Database db, int version) async {
         // Tabela de alunos
-        await db.execute(
-          '''
-            CREATE TABLE IF NOT EXISTS alunos(
-              id INTEGER PRIMARY KEY,
-              nome TEXT NOT NULL,
-              idade INTEGER NOT NULL
-            )
-          )'''
-        );
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS alunos(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            idade INTEGER NOT NULL
+          )
+        ''');
+
         // Tabela de Cursos
         await db.execute('''
           CREATE TABLE IF NOT EXISTS cursos (
@@ -56,27 +55,38 @@ class DatabaseHelper {
         await db.insert('cursos', {'nome': 'Ciência da Computação'});
         await db.insert('cursos', {'nome': 'Design Gráfico'});
         await db.insert('cursos', {'nome': 'Administração'});
-      }
+      },
     );
     return database;
-
   }
 
   // CRUD
-  // inserir aluno e retornar o seu id
-  Future<int> insertAluno(Map<String, dynamic> alunoMap) async{
+  Future<int> insertAluno(Map<String, dynamic> alunoMap) async {
     final db = await database;
     return await db.insert('alunos', alunoMap);
   }
 
-  // Lista todos os cursos
   Future<List<Map<String, dynamic>>> listarCursos() async {
     final db = await database;
     return await db.query('cursos');
   }
 
-  // Inserir matricula (vincula aluno ao curso)
-  Future<int> insertMatricula(int alunoId, int cursoId) async{
-    
+  Future<int> insertMatricula(int alunoId, int cursoId) async {
+    final db = await database;
+    return await db.insert('matriculas', {
+      'aluno_id': alunoId,
+      'curso_id': cursoId,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> listarAlunosComCursos() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT a.nome AS aluno_nome, a.idade, c.nome AS curso_nome, m.data_matricula
+      FROM matriculas m
+      INNER JOIN alunos a ON m.aluno_id = a.id
+      INNER JOIN cursos c ON m.curso_id = c.id
+      ORDER BY m.id DESC
+    ''');
   }
 }
